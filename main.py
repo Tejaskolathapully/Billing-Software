@@ -8,6 +8,7 @@ import random, os, threading, time
 import psycopg2
 import cv2
 from pyzbar import pyzbar
+from pyzbar.pyzbar import ZBarSymbol
 
 # --- Configuration Constant ---
 # Resolve the invoice folder from configuration or use a user-writable default.
@@ -371,6 +372,8 @@ class BillApp:
     def scan_barcode_loop(self, camera_index):
         """Captures and decodes barcodes from the laptop camera in the background."""
         cap = None
+        preview_name = "KTMALL Barcode Scanner"
+        preview_open = False
         try:
             cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
             if not cap.isOpened():
@@ -385,6 +388,7 @@ class BillApp:
 
             cooldown = 2.0
             last_code, last_time = None, 0
+            last_detected = None
             while self.scanning:
                 ret, frame = cap.read()
                 if not ret:
@@ -396,7 +400,43 @@ class BillApp:
                     break
 
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                for barcode in pyzbar.decode(gray):
+                barcodes = pyzbar.decode(gray, symbols=[ZBarSymbol.EAN13])
+                if not barcodes:
+                    enlarged = cv2.resize(
+                        gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC
+                    )
+                    barcodes = pyzbar.decode(enlarged, symbols=[ZBarSymbol.EAN13])
+                if not barcodes:
+                    thresholded = cv2.threshold(
+                        gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
+                    )[1]
+                    barcodes = pyzbar.decode(thresholded, symbols=[ZBarSymbol.EAN13])
+
+                if barcodes:
+                    last_detected = barcodes[0].data.decode("utf-8", errors="replace")
+
+                preview = frame.copy()
+                guidance = (
+                    f"Detected: {last_detected}"
+                    if last_detected
+                    else "Hold barcode steady, centered, and in focus"
+                )
+                cv2.putText(
+                    preview,
+                    guidance,
+                    (12, 28),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.65,
+                    (0, 255, 0) if last_detected else (0, 200, 255),
+                    2,
+                )
+                cv2.imshow(preview_name, preview)
+                preview_open = True
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    self.scanning = False
+                    break
+
+                for barcode in barcodes:
                     code = barcode.data.decode("utf-8", errors="replace")
                     now = time.time()
                     if code != last_code or now - last_time > cooldown:
@@ -415,6 +455,8 @@ class BillApp:
             if cap is not None:
                 cap.release()
             self.scanning = False
+            if preview_open:
+                cv2.destroyWindow(preview_name)
 
     def update_quantity_in_treeview(self, tree, product_name, increase_qty, price_per_unit):
         """Increments the quantity of an item in the bill summary Treeview."""
