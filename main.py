@@ -182,8 +182,9 @@ class BillApp:
         btnf.grid(row=4, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 10))
         btnf.grid_columnconfigure(0, weight=1)
         ttk.Button(btnf, text="Start Scanning", command=self.start_scanning, bootstyle="info").grid(row=0, column=0, padx=(0, 12), pady=6)
-        ttk.Button(btnf, text="Generate Bill", command=self.generate_bill, bootstyle="success").grid(row=0, column=1, padx=12, pady=6)
-        ttk.Button(btnf, text="Exit", command=self.exit_program, bootstyle="danger").grid(row=0, column=2, padx=(12, 0), pady=6)
+        ttk.Button(btnf, text="Stop Scanning", command=self.stop_scanning, bootstyle="warning").grid(row=0, column=1, padx=12, pady=6)
+        ttk.Button(btnf, text="Generate Bill", command=self.generate_bill, bootstyle="success").grid(row=0, column=2, padx=12, pady=6)
+        ttk.Button(btnf, text="Exit", command=self.exit_program, bootstyle="danger").grid(row=0, column=3, padx=(12, 0), pady=6)
         
     # =========================================================================
     # Bill Search Methods 
@@ -354,60 +355,66 @@ class BillApp:
 
     def start_scanning(self):
         """Starts the barcode scanning thread if not already running."""
-        if not self.scanning:
-            self.scanning = True
-            if self.scanning_thread and self.scanning_thread.is_alive():
-                self.scanning_thread.join(timeout=0.1)
-            
-            self.scanning_thread = threading.Thread(target=self.scan_barcode_loop, daemon=True)
-            self.scanning_thread.start()
-
-    def scan_barcode_loop(self):
-        """Background thread for capturing and decoding barcodes from DroidCam."""
-        ip_url = "http://192.168.0.100:4747/video"
-        cap = cv2.VideoCapture(ip_url)
-        
-        if not cap.isOpened():
-            self.root.after(0, lambda: messagebox.showerror("Camera Error", "Cannot open DroidCam stream"))
-            self.scanning = False
+        if self.scanning:
             return
-        
-        cooldown = 2.0
-        last_code, last_time = None, 0
-        
-        while self.scanning:
-            ret, frame = cap.read()
-            if not ret:
-                break
-                
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            barcodes = pyzbar.decode(gray)
-            
-            if barcodes:
-                code = barcodes[0].data.decode("utf-8")
-                now = time.time()
-                
-                if code != last_code or (now - last_time) > cooldown:
-                    last_code, last_time = code, now
-                    
-                    try:
-                        self.root.after(0, self.handle_scanned_barcode, code)
-                    except RuntimeError:
-                        break 
-                        
-                (x, y, w, h) = barcodes[0].rect
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                cv2.putText(frame, code, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            
-            cv2.imshow("DroidCam Barcode Scanner", frame)
-            
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                self.scanning = False
-                break
-                
-        cap.release()
-        cv2.destroyAllWindows()
+
+        self.scanning = True
+        self.scanning_thread = threading.Thread(
+            target=self.scan_barcode_loop, args=(0,), daemon=True
+        )
+        self.scanning_thread.start()
+
+    def stop_scanning(self):
+        """Requests the capture loop to stop."""
         self.scanning = False
+
+    def scan_barcode_loop(self, camera_index):
+        """Captures and decodes barcodes from the laptop camera in the background."""
+        cap = None
+        try:
+            cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+            if not cap.isOpened():
+                cap.release()
+                cap = cv2.VideoCapture(camera_index)
+
+            if not cap.isOpened():
+                raise RuntimeError(
+                    "Cannot open the laptop camera (camera index 0).\n"
+                    "Check Windows camera privacy settings and close other apps using the camera."
+                )
+
+            cooldown = 2.0
+            last_code, last_time = None, 0
+            while self.scanning:
+                ret, frame = cap.read()
+                if not ret:
+                    if self.scanning:
+                        raise RuntimeError(
+                            "The laptop camera stopped sending frames. Check that it is connected "
+                            "and not being used by another app."
+                        )
+                    break
+
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                for barcode in pyzbar.decode(gray):
+                    code = barcode.data.decode("utf-8", errors="replace")
+                    now = time.time()
+                    if code != last_code or now - last_time > cooldown:
+                        last_code, last_time = code, now
+                        self.root.after(0, self.handle_scanned_barcode, code)
+        except Exception as exc:
+            if self.scanning:
+                try:
+                    self.root.after(
+                        0,
+                        lambda error=str(exc): messagebox.showerror("Scanner Error", error),
+                    )
+                except RuntimeError:
+                    pass
+        finally:
+            if cap is not None:
+                cap.release()
+            self.scanning = False
 
     def update_quantity_in_treeview(self, tree, product_name, increase_qty, price_per_unit):
         """Increments the quantity of an item in the bill summary Treeview."""
