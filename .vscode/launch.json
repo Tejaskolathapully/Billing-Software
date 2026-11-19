@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Billing Software",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PGHOST": "localhost",
+                "PGPORT": "5432",
+                "PGUSER": "postgres",
+                "PGDATABASE": "KTMall",
+                "PGPASSWORD": "${input:postgresPassword}"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "postgresPassword",
+            "type": "promptString",
+            "description": "PostgreSQL password",
+            "password": true
+        }
+    ]
+}

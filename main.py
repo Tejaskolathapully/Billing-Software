@@ -2,7 +2,7 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from tkinter import messagebox
 from tkinter import ttk as tkttk
-from tkinter import StringVar, END, Toplevel, VERTICAL, RIGHT, Y
+from tkinter import StringVar, END, Toplevel, VERTICAL, RIGHT, Y, W, E
 from tkinter.ttk import Combobox
 import random, os, threading, time
 import psycopg2
@@ -10,18 +10,23 @@ import cv2
 from pyzbar import pyzbar
 
 # --- Configuration Constant ---
-# Define the absolute path for the Invoice folder 
-# Note: Using double backslashes for Windows path in Python strings
-INVOICE_DIRECTORY = "C:\\Users\\user\\Downloads\\data analysis\\billing software\\Invoice"
+# Resolve the invoice folder from configuration or use a user-writable default.
+INVOICE_DIRECTORY = os.environ.get(
+    "INVOICE_DIRECTORY",
+    os.path.join(os.path.expanduser("~"), "Downloads", "KTMall", "Invoice"),
+)
 # ------------------------------
 
-# PostgreSQL connection (Keep the credentials as provided)
+# PostgreSQL connection. Credentials can be supplied through environment variables.
 try:
     conn = psycopg2.connect(
-        host='localhost', user='postgres', password='1234',
-        dbname='KTMall', port=5432
+        host=os.environ.get("PGHOST", "localhost"),
+        user=os.environ.get("PGUSER", "postgres"),
+        password=os.environ.get("PGPASSWORD"),
+        dbname=os.environ.get("PGDATABASE", "KTMall"),
+        port=int(os.environ.get("PGPORT", "5432")),
     )
-    c = conn = conn.cursor()
+    c = conn.cursor()
 except psycopg2.OperationalError as e:
     print(f"Database Connection Error: {e}")
     exit(1)
