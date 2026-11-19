@@ -22,7 +22,7 @@ try:
     conn = psycopg2.connect(
         host=os.environ.get("PGHOST", "localhost"),
         user=os.environ.get("PGUSER", "postgres"),
-        password=os.environ.get("PGPASSWORD"),
+        password=os.environ.get("PGPASSWORD", "postgres"),
         dbname=os.environ.get("PGDATABASE", "KTMall"),
         port=int(os.environ.get("PGPORT", "5432")),
     )
@@ -46,6 +46,14 @@ class BillApp:
         self.root = root
         self.root.title("KTMALL Billing Software")
         self.root.geometry("1350x780+0+0")
+        self.root.minsize(1100, 680)
+        self.root.grid_rowconfigure(0, weight=0)
+        self.root.grid_rowconfigure(1, weight=0)
+        self.root.grid_rowconfigure(2, weight=0)
+        self.root.grid_rowconfigure(3, weight=1)
+        self.root.grid_rowconfigure(4, weight=0)
+        self.root.grid_columnconfigure(0, weight=3)
+        self.root.grid_columnconfigure(1, weight=1)
         
         self.root.protocol("WM_DELETE_WINDOW", self.exit_program)
 
@@ -66,24 +74,29 @@ class BillApp:
         self.edit_quantity_entry = None
         self.all_product_names = [] 
 
-        # Title Label
-        ttk.Label(root, text="KTMALL Billing Software", font=("Segoe UI", 24, "bold"),
-                  bootstyle="primary").pack(fill="x", pady=10)
+        # Title
+        ttk.Label(
+            root,
+            text="KTMALL Billing Software",
+            font=("Segoe UI", 22, "bold"),
+            bootstyle="inverse-primary",
+            anchor="center",
+        ).grid(row=0, column=0, columnspan=2, sticky="ew", ipady=8)
 
         # Customer Details Frame
         frame = ttk.Labelframe(root, text="Customer Details", bootstyle="info")
-        frame.place(x=0, y=80, relwidth=1, height=60)
+        frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 4))
         
         # Customer Name and Phone
-        ttk.Label(frame, text="Customer:").grid(row=0, column=0, padx=5, pady=5)
-        ttk.Entry(frame, textvariable=self.customer_name, width=20).grid(row=0, column=1)
-        ttk.Label(frame, text="Phone:").grid(row=0, column=2, padx=5, pady=5)
-        ttk.Entry(frame, textvariable=self.customer_phone, width=15).grid(row=0, column=3)
+        ttk.Label(frame, text="Customer:").grid(row=0, column=0, padx=(8, 5), pady=6)
+        ttk.Entry(frame, textvariable=self.customer_name, width=24).grid(row=0, column=1, padx=(0, 12))
+        ttk.Label(frame, text="Phone:").grid(row=0, column=2, padx=(8, 5))
+        ttk.Entry(frame, textvariable=self.customer_phone, width=18).grid(row=0, column=3, padx=(0, 12))
         
         # Search Bill Elements 
-        ttk.Label(frame, text="Search Bill No:").grid(row=0, column=4, padx=(20, 5), pady=5)
-        ttk.Entry(frame, textvariable=self.search_bill_number, width=10).grid(row=0, column=5)
-        ttk.Button(frame, text="Search Bill", command=self.search_bill, bootstyle="secondary").grid(row=0, column=6, padx=5)
+        ttk.Label(frame, text="Search Bill No:").grid(row=0, column=4, padx=(20, 5))
+        ttk.Entry(frame, textvariable=self.search_bill_number, width=12).grid(row=0, column=5)
+        ttk.Button(frame, text="Search Bill", command=self.search_bill, bootstyle="secondary").grid(row=0, column=6, padx=8)
 
         # Configure columns in frame to ensure spacing
         frame.grid_columnconfigure(7, weight=1)
@@ -94,53 +107,54 @@ class BillApp:
 
         # Manual Entry Frame
         manualf = ttk.Labelframe(root, text="Add Item Manually", bootstyle="warning")
-        manualf.place(x=0, y=145, relwidth=1.25, height=80)
+        manualf.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(4, 8))
 
-        ttk.Label(manualf, text="Product Name:").grid(row=0, column=0, padx=5, pady=5)
-        self.manual_name_combo = Combobox(manualf, textvariable=self.manual_name, width=25)
+        ttk.Label(manualf, text="Product Name:").grid(row=0, column=0, padx=(8, 5), pady=(6, 2))
+        self.manual_name_combo = Combobox(manualf, textvariable=self.manual_name, width=32)
         
         self.manual_name_combo['values'] = self.all_product_names
         
-        self.manual_name_combo.grid(row=0, column=1)
+        self.manual_name_combo.grid(row=0, column=1, padx=(0, 12), pady=(6, 2), sticky="ew")
         
         self.manual_name_combo.bind("<KeyRelease>", self.filter_combobox)
         self.manual_name_combo.bind("<<ComboboxSelected>>", self.on_manual_name_selected)
 
-        ttk.Label(manualf, text="Category:").grid(row=0, column=2, padx=5, pady=5)
-        ttk.Entry(manualf, textvariable=self.manual_category, width=20).grid(row=0, column=3)
+        ttk.Label(manualf, text="Category:").grid(row=0, column=2, padx=(8, 5), pady=(6, 2))
+        ttk.Entry(manualf, textvariable=self.manual_category, width=22).grid(row=0, column=3, padx=(0, 12), pady=(6, 2))
 
-        ttk.Label(manualf, text="Quantity:").grid(row=1, column=0, padx=5, pady=5)
-        ttk.Entry(manualf, textvariable=self.manual_quantity, width=10).grid(row=1, column=1)
+        ttk.Label(manualf, text="Quantity:").grid(row=1, column=0, padx=(8, 5), pady=(2, 6))
+        ttk.Entry(manualf, textvariable=self.manual_quantity, width=12).grid(row=1, column=1, sticky="w", pady=(2, 6))
 
-        ttk.Label(manualf, text="Price (₹):").grid(row=1, column=2, padx=5, pady=5)
-        ttk.Entry(manualf, textvariable=self.manual_price, width=15).grid(row=1, column=3)
+        ttk.Label(manualf, text="Price (₹):").grid(row=1, column=2, padx=(8, 5), pady=(2, 6))
+        ttk.Entry(manualf, textvariable=self.manual_price, width=16).grid(row=1, column=3, sticky="w", pady=(2, 6))
 
-        ttk.Button(manualf, text="Add Item", bootstyle="success", command=self.add_manual_item).grid(row=0, column=4, rowspan=2, padx=10)
+        ttk.Button(manualf, text="Add Item", bootstyle="success", command=self.add_manual_item).grid(row=0, column=4, rowspan=2, padx=12, pady=8)
+        manualf.grid_columnconfigure(1, weight=1)
 
         # =========================================================================
         # Bill Summary and Totals Layout 
         # =========================================================================
         billf = ttk.Frame(root)
-        billf.place(x=1000, y=230, width=350, height=520) 
-        ttk.Label(billf, text="Bill Summary", bootstyle="secondary", font=("Segoe UI", 15, "bold")).pack(fill="x")
+        billf.grid(row=3, column=1, sticky="nsew", padx=(4, 10), pady=(0, 8))
+        ttk.Label(billf, text="Bill Summary", bootstyle="secondary", font=("Segoe UI", 15, "bold"), anchor="center").pack(fill="x", pady=(0, 6))
 
         # 1. Treeview Frame
         tree_frame = ttk.Frame(billf)
-        tree_frame.pack(fill='x', padx=5, pady=5) 
+        tree_frame.pack(fill='both', expand=True, padx=0, pady=0)
         
         columns = ("Name", "Category", "Quantity", "Price")
-        self.bill_summary = tkttk.Treeview(tree_frame, columns=columns, show="headings", height=20) 
+        self.bill_summary = tkttk.Treeview(tree_frame, columns=columns, show="headings", height=18)
         for col in columns:
             self.bill_summary.heading(col, text=col)
             if col == "Name":
-                self.bill_summary.column(col, width=140, anchor='w')
+                self.bill_summary.column(col, width=120, anchor='w')
             elif col == "Category":
-                self.bill_summary.column(col, width=80, anchor='center')
+                self.bill_summary.column(col, width=70, anchor='center')
             elif col == "Quantity":
                 self.bill_summary.column(col, width=50, anchor='center')
             else:
-                self.bill_summary.column(col, width=60, anchor='e')
-        self.bill_summary.pack(fill='x', expand=True) 
+                self.bill_summary.column(col, width=70, anchor='e')
+        self.bill_summary.pack(fill='both', expand=True)
         self.bill_summary.bind("<Double-1>", self.on_double_click_quantity)
         
         # 2. Totals Frame - Using grid for horizontal layout
@@ -165,10 +179,11 @@ class BillApp:
 
         # Buttons
         btnf = ttk.Frame(root)
-        btnf.place(x=0, y=680, width=990, height=40) 
-        ttk.Button(btnf, text="Start Scanning", command=self.start_scanning, bootstyle="info").pack(side="left", padx=20)
-        ttk.Button(btnf, text="Generate Bill", command=self.generate_bill, bootstyle="success").pack(side="left", padx=20)
-        ttk.Button(btnf, text="Exit", command=self.exit_program, bootstyle="danger").pack(side="left", padx=20)
+        btnf.grid(row=4, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 10))
+        btnf.grid_columnconfigure(0, weight=1)
+        ttk.Button(btnf, text="Start Scanning", command=self.start_scanning, bootstyle="info").grid(row=0, column=0, padx=(0, 12), pady=6)
+        ttk.Button(btnf, text="Generate Bill", command=self.generate_bill, bootstyle="success").grid(row=0, column=1, padx=12, pady=6)
+        ttk.Button(btnf, text="Exit", command=self.exit_program, bootstyle="danger").grid(row=0, column=2, padx=(12, 0), pady=6)
         
     # =========================================================================
     # Bill Search Methods 
@@ -250,7 +265,8 @@ class BillApp:
             messagebox.showerror("Database Error", f"Failed to load products: {e}")
             return {}
 
-    def filter_combobox(self, event):
+    def filter_combobox(self, *args):
+        del args
         """Dynamically filters the combobox values based on user input."""
         current_text = self.manual_name.get().strip().lower()
         
@@ -274,7 +290,8 @@ class BillApp:
         self.manual_name_combo.focus()
 
 
-    def on_manual_name_selected(self, event):
+    def on_manual_name_selected(self, *args):
+        del args
         """Populates category and price fields when a product is selected manually."""
         name = self.manual_name.get().strip()
         self.manual_name_combo['values'] = self.all_product_names
@@ -290,8 +307,8 @@ class BillApp:
     def Product_Details(self):
         """Creates the frame and Treeview for detailed product listing."""
         frame = ttk.Frame(self.root)
-        frame.place(x=10, y=230, width=980, height=420)
-        ttk.Label(frame, text="Product Details", bootstyle="secondary", font=("Segoe UI", 15, "bold")).pack(fill='x')
+        frame.grid(row=3, column=0, sticky="nsew", padx=(10, 4), pady=(0, 8))
+        ttk.Label(frame, text="Product Details", bootstyle="secondary", font=("Segoe UI", 15, "bold"), anchor="center").pack(fill='x', pady=(0, 6))
         columns = ("Sr No.", "Title", "Category", "Quantity", "Price")
         self.product_table = tkttk.Treeview(frame, columns=columns, show='headings', height=18)
         for col in columns:
@@ -319,7 +336,7 @@ class BillApp:
         
         subtotal = round(qty * price, 2)
         
-        updated = self.update_quantity_in_treeview(self.bill_summary, name, category, qty, price)
+        updated = self.update_quantity_in_treeview(self.bill_summary, name, qty, price)
         if not updated:
             self.bill_summary.insert("", "end", values=(name, category, qty, f"₹{subtotal:.2f}"))
             
@@ -392,7 +409,7 @@ class BillApp:
         cv2.destroyAllWindows()
         self.scanning = False
 
-    def update_quantity_in_treeview(self, tree, product_name, category, increase_qty, price_per_unit):
+    def update_quantity_in_treeview(self, tree, product_name, increase_qty, price_per_unit):
         """Increments the quantity of an item in the bill summary Treeview."""
         for item in tree.get_children():
             vals = tree.item(item, "values")
@@ -429,7 +446,7 @@ class BillApp:
             qty = 1
             
             updated = self.update_quantity_in_treeview(
-                self.bill_summary, title, category, 1, price_float
+                self.bill_summary, title, 1, price_float
             )
             
             if not updated:
@@ -467,7 +484,8 @@ class BillApp:
         self.edit_quantity_entry.insert(0, val)
         self.edit_quantity_entry.focus()
 
-        def finish_edit(event=None):
+        def finish_edit(*args):
+            del args
             self.save_edited_quantity(rowid)
 
         self.edit_quantity_entry.bind("<FocusOut>", finish_edit)
@@ -618,7 +636,7 @@ class BillApp:
         
         try:
             cv2.destroyAllWindows()
-        except:
+        except Exception:
             pass
             
         try:
